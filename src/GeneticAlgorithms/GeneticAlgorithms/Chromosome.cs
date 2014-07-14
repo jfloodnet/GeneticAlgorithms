@@ -8,9 +8,6 @@ namespace GeneticAlgorithms
 {
     public class Chromosome
     {
-        const float mutationRate = .001F;
-        const float crossOverRate = .7F;
-
         const int genoSize = 4;
         const int chromoSize = 75 * genoSize;
 
@@ -25,39 +22,52 @@ namespace GeneticAlgorithms
             }
         }
 
+        private float answer;
+        public float Result
+        {
+            get
+            {
+                return answer;
+            }
+        }
+
         public Func<string, string> Decode = bits => DecodeImpl(bits);
         
         public static readonly Dictionary<string, string> GenoTypes = InitGenoTypes();
 
-        private Chromosome(string bits, float fitness)
+        private Chromosome(string bits, float fitness, float answer)
         {
             Bits = bits;
-            Fitness = fitness;            
+            Fitness = fitness;
+            this.answer = answer;
         }
+
+
 
         public static Chromosome New(Random random)
         {
-            return New((Func<string>)(() => GenerateCodeImpl(random)));
+            return New(() => GenerateCodeImpl(random));
         }
 
         public static Chromosome New(Func<string> generateCode)
         {
-            return new Chromosome(generateCode(), 0);
+            return new Chromosome(generateCode(), 0, 0);
         }
 
         public Chromosome CalculateFitness(float goal)
         {
             var answer = this.Answer();
-            if (answer == goal)
-                return new Chromosome(Bits, 1);
-            return new Chromosome(Bits, 1 / (goal - answer));
+            if (Math.Abs(answer - goal) < float.Epsilon)
+                return new Chromosome(Bits, float.MaxValue, answer);
+            return new Chromosome(Bits, 1 / Math.Abs(goal - answer), answer);
         }
 
-        public int Answer()
+
+        public float Answer()
         {
             var calculation = Decode(Bits);
 
-            int result = 0;
+            float result = 0;
             char lastOperator = '+';
             foreach (var c in calculation)
             {
@@ -76,10 +86,10 @@ namespace GeneticAlgorithms
                 else
                 {
                     lastOperator = c;
-                    continue;
                 }
             }
-            return result;
+
+            return answer = result; 
         }
 
         public Chromosome MateWith(Chromosome female, double crossoverRate, double mutationRate)
@@ -92,10 +102,10 @@ namespace GeneticAlgorithms
         {
             if (rate > 1) throw new Exception("Rate cant exceed 1");
 
-            int position = (int)(rate * (double)Bits.Length);
+            int position = (int)(rate * Bits.Length);
             return new Chromosome(
                 Bits.Substring(0, position) + mate.Bits.Substring(position),
-                0);
+                0, 0);
         }
 
         public Chromosome Mutate(double mutationRate)
@@ -109,7 +119,7 @@ namespace GeneticAlgorithms
                     return x;
 
             });
-            return new Chromosome(new string(newGenes.ToArray()), 0);
+            return new Chromosome(new string(newGenes.ToArray()), 0, 0);
         }
 
         private static string GenerateCodeImpl(Random random)

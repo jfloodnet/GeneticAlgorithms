@@ -10,16 +10,34 @@ namespace GeneticAlgorithms
     {
         private readonly Random random;
         private readonly IEnumerable<Chromosome> chromos;
+        
+        private readonly Chromosome solution;
+        private readonly int generation;
 
         public int Count()
         {
             return chromos.Count();
         }
+
+        public int Generation()
+        {
+            return generation;
+        }
+
         private Population(IEnumerable<Chromosome> chromos, Random r)
         {
             this.chromos = chromos.ToArray();
             this.random = r;
         }
+
+        private Population(IEnumerable<Chromosome> chromos, Random r, Chromosome solution, int gen)
+        {
+            this.chromos = chromos.ToArray();
+            this.solution = solution;
+            this.generation = gen;
+            this.random = r;
+        }
+
         public static Population NewPopulation(int size)
         {
             Random randomness = new Random();
@@ -29,9 +47,14 @@ namespace GeneticAlgorithms
                     .Select(id => Chromosome.New(randomness)), randomness);
         }
 
-        public Population Add(IEnumerable<Chromosome> newchromos)
+        public Chromosome Solution()
         {
-            return new Population(chromos.Concat(newchromos), random);
+            return solution;
+        }
+
+        public Chromosome BestAnswer()
+        {
+            return chromos.Aggregate((m, f) => m.Fitness >= f.Fitness ? m : f);
         }
 
         public Chromosome SelectChromosome(float goal)
@@ -45,7 +68,7 @@ namespace GeneticAlgorithms
             foreach (var item in candidates)
             {
                 fitnessSoFar += item.Fitness;
-                if (fitnessSoFar > totalFitness)
+                if (fitnessSoFar > slice)
                 {
                     return item;
                 }                
@@ -66,40 +89,36 @@ namespace GeneticAlgorithms
 
         public IEnumerable<Chromosome> All() { return chromos; }
 
-        public static Chromosome BreedNewGenerationUntilSolutionFound(Population p,
-            float goal, 
-            double crossOverRate,
-            double mutationRate)
+        public Population FindSolution(float goal, double crossOverRate, double mutationRate)
         {
             int generations = 0;
-            int maxgens = 400;
+            int maxgens = 50;
+
+            Population currentGeneration = this;
             while (generations < maxgens)
             {
                 generations++;
-                Chromosome solution = null;
 
-                p = p.Add(Enumerable.Range(0, p.Count())
+                var nextGeneration = 
+                Enumerable.Range(1, Count())
                 .Select(_ =>
-                    {
-                        var male = p.SelectChromosome(goal);
-                        var female = p.SelectChromosome(goal);
-                        var offSpring = 
-                            male
-                            .MateWith(female, .7, .001)
-                            .CalculateFitness(goal);
+                {
+                    var male = currentGeneration.SelectChromosome(goal);
+                    var female = currentGeneration.SelectChromosome(goal);
+                    return 
+                        male
+                        .MateWith(female, crossOverRate, mutationRate)
+                        .CalculateFitness(goal);
+                }).ToList();
 
-                        if (offSpring.Fitness == 1)                        
-                            solution = offSpring;
-                        
-                        return offSpring;
-                    }));
-                if (solution != null)
-                    return solution;                
+                var possibleSolution =
+                    nextGeneration.FirstOrDefault(
+                        offSpring => Math.Abs(offSpring.Fitness - float.MaxValue) < float.Epsilon);
+
+                currentGeneration =
+                    new Population(nextGeneration, random, possibleSolution, generations);
             }
-
-            throw new Exception("solution not found in 400 gens");
-
-            
+            return currentGeneration;
         }
     }
 }

@@ -1,4 +1,6 @@
-﻿using GeneticAlgorithms;
+﻿using System.Diagnostics;
+using System.Threading;
+using GeneticAlgorithms;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -137,13 +139,35 @@ namespace Test
         [Fact]
         public void Find_the_first_chromoSome_that_solves_the_puzzle()
         {
-            float goal = 42F;
-            var population = Population.NewPopulation(20);
+            Stopwatch watch = new Stopwatch();
+            watch.Start();
+            float goal = 22F;
+            var population = Population.NewPopulation(300);
 
-            var solution = Population.BreedNewGenerationUntilSolutionFound(population, goal, .7, .001);
 
-            Assert.Equal(solution.Answer(), goal);
-          
+            var finalGeneration = population.FindSolution(goal, .7, .05);
+            var solution = finalGeneration.Solution();
+
+            watch.Stop();
+
+            if (solution != null)
+            {
+                Console.WriteLine("Ms to solution: {0}", watch.ElapsedMilliseconds);
+                Console.WriteLine("Number of generations: {0}", finalGeneration.Generation());
+                Console.WriteLine("Fitness: {0}, Solution: {1}, Answer: {2}", solution.Fitness, solution.DecodedString,
+                    solution.Answer());
+                Console.WriteLine("Bits: {0}", solution.Bits);
+
+                Assert.Equal(solution.Answer(), goal);
+            }
+
+            foreach (var c in finalGeneration.All())
+            {
+                Console.WriteLine("Current generations solutions");
+                Console.WriteLine("Fitness: {0}, Solution: {1}, Answer: {2}", c.Fitness, c.DecodedString, c.Answer());
+            }
+
+            Assert.NotNull(solution);
         }
 
         private static Dictionary<string, string> InitGenoTypes()
@@ -162,7 +186,6 @@ namespace Test
             genoTypes.Add("1011", "-");
             genoTypes.Add("1100", "*");
             genoTypes.Add("1101", "/");
-            
             return genoTypes;
         }
     }
