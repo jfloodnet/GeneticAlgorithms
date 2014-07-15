@@ -16,54 +16,57 @@ namespace Test
         [Fact]
         public void Asking_for_a_population_of_N_creates_N_chromosomes()
         {
+            var target = 42;
             var N = 100;
-            var sut = Population.NewPopulation(N);
+            var sut = Population.NewPopulation(target, N, new Random());
             Assert.Equal(N, sut.All().Count());
         }
 
         private Chromosome ChromosomeWithEquation(string equation)
         {
-            return Chromosome.New(() => "", bits => equation);
+            var target = 42;
+            return Chromosome.New(target, () => "", bits => equation);
         }
 
         private Chromosome ChromosomeWithBits(string bits)
         {
-            return Chromosome.New(() => bits, _ => "");
+            var target = 42;
+            return Chromosome.New(target, () => bits, _ => "");
         }
 
         [Fact]
         public void Can_handle_addition()
         {
             var sut = ChromosomeWithEquation("7+4");
-            Assert.Equal(7 + 4, sut.Answer());            
+            Assert.Equal(7 + 4, sut.Answer);            
         }
 
         [Fact]
         public void Can_handle_subtraction()
         {
             var sut = ChromosomeWithEquation("7-4");
-            Assert.Equal(7 - 4, sut.Answer());
+            Assert.Equal(7 - 4, sut.Answer);
         }
 
         [Fact]
         public void Can_handle_multiplication()
         {
             var sut = ChromosomeWithEquation("7*4");
-            Assert.Equal(7 * 4, sut.Answer());
+            Assert.Equal(7 * 4, sut.Answer);
         }
 
         [Fact]
         public void Can_handle_division()
         {
             var sut = ChromosomeWithEquation("7/4");
-            Assert.Equal((7.0F / 4.0F), sut.Answer());
+            Assert.Equal((7.0F / 4.0F), sut.Answer);
         }
 
         [Fact]
         public void Can_handle_multiple_operations()
         {
             var sut = ChromosomeWithEquation("7/7*4+4-7");
-            Assert.Equal(7 / 7 * 4 + 4 - 7, sut.Answer());
+            Assert.Equal(7 / 7 * 4 + 4 - 7, sut.Answer);
         }
 
         [Fact]
@@ -106,7 +109,7 @@ namespace Test
             var sut = ChromosomeWithBits("11111111");
             var other = ChromosomeWithBits("00000000");
 
-            var result = sut.Crossover(ref other, .5);
+            var result = sut.Crossover(other, .5);
 
             Assert.Equal(result.Bits, "11110000");
         }
@@ -146,10 +149,11 @@ namespace Test
         {
             Stopwatch watch = new Stopwatch();
             watch.Start();
-            float goal = 150F;
-            var population = Population.NewPopulation(300);
+            float target = 31F;
+            int populationSize = 1000;
+            var population = Population.NewPopulation(target, populationSize, new Random());
 
-            var finalGeneration = population.FindSolution(goal, .7, .001, 400);
+            var finalGeneration = population.FindSolution(.7, .001, 1000);
             var solution = finalGeneration.Solution();
 
             watch.Stop();
@@ -159,10 +163,10 @@ namespace Test
                 Console.WriteLine("Ms to solution: {0}", watch.ElapsedMilliseconds);
                 Console.WriteLine("Number of generations: {0}", finalGeneration.Generation());
                 Console.WriteLine("Fitness: {0}, Solution: {1}, Answer: {2}", solution.Fitness, population.Decode(solution.Bits),
-                    solution.Answer());
+                    solution.Answer);
                 Console.WriteLine("Bits: {0}", solution.Bits);
 
-                Assert.Equal(solution.Answer(), goal);
+                Assert.Equal(solution.Answer, target);
             }
             else
             {
@@ -172,7 +176,7 @@ namespace Test
             foreach (var c in finalGeneration.All())
             {
                 Console.WriteLine("Current generations solutions");
-                Console.WriteLine("Fitness: {0}, Solution: {1}, Answer: {2}", c.Fitness, population.Decode(c.Bits), c.Answer());
+                Console.WriteLine("Fitness: {0}, Solution: {1}, Answer: {2}", c.Fitness, population.Decode(c.Bits), c.Answer);
             }
 
         }

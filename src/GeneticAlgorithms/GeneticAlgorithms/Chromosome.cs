@@ -8,54 +8,72 @@ namespace GeneticAlgorithms
 {
     public class Chromosome
     {
-        Random rand = new Random();
+        
         static readonly int GENO_SIZE = 4;
-        static readonly int CHROMO_SIZE = 75 * GENO_SIZE;
+        static readonly int CHROMO_SIZE = 20 * GENO_SIZE;
 
+        readonly Random rand = new Random();
         readonly Func<string, string> decode;
-        private float answer;
         
         public readonly string Bits;
+        public readonly float Target;
         public readonly float Fitness;
-       
-        public float Result
-        {
-            get
-            {
-                return answer;
-            }
-        }
+        public readonly float Answer;
 
-        private Chromosome(string bits, float fitness, float answer, Func<string, string> decoder)
+        private Chromosome(float target, string bits, Func<string, string> decoder)
         {
-            Bits = bits;
-            Fitness = fitness;
-            this.answer = answer;
+            this.Bits = bits;            
             this.decode = decoder;
+            this.Target = target;
+
+            Answer = CalculateAnswer(decoder(bits));
+            Fitness = CalculateFitness(target, this.Answer);
         }
 
-        public static Chromosome New(GeneticCode code)
+        public static Chromosome New(float target, GeneticCode code)
         {
-            return New(() => code.Generate(CHROMO_SIZE), bits => code.Decode(bits));
+            return New(target, () => code.Generate(CHROMO_SIZE), bits => code.Decode(bits));
         }
 
-        public static Chromosome New(Func<string> generateCode, Func<string,string> decoder)
+        public static Chromosome New(float target, Func<string> generateCode, Func<string,string> decoder)
         {
-            return new Chromosome(generateCode(), 0, 0, decoder);
+            return new Chromosome(target, generateCode(), decoder);
+        }
+                
+        public Chromosome Crossover(Chromosome mate, double rate)
+        {
+            if (rate > 1) throw new Exception("Rate cant exceed 1");
+            if (rand.NextDouble() >= rate) return this;
+
+            int position = (int)(rate * Bits.Length);
+            string firstHalf = Bits.Substring(0, position);
+            string lastHalf = mate.Bits.Substring(position);
+
+            return new Chromosome(Target, lastHalf + firstHalf, decode);
         }
 
-        public Chromosome CalculateFitness(float goal)
+        public Chromosome Mutate(double mutationRate)
         {
-            var answer = this.Answer();
+            var newGenes = Bits.Select(x =>
+            {
+                if (rand.NextDouble() <= mutationRate)
+                    return x == '0' ? '1' : '0';
+                else
+                    return x;
+            });
+
+            return new Chromosome(Target, new string(newGenes.ToArray()), decode);
+        }
+
+        private static float CalculateFitness(float goal, float answer)
+        {            
             if (Math.Abs(answer - goal) < float.Epsilon)
-                return new Chromosome(Bits, float.MaxValue, answer, decode);
-            return new Chromosome(Bits, 1 / Math.Abs(goal - answer), answer, decode);
+                return float.MaxValue;
+            return 1 / Math.Abs(goal - answer);
         }
 
-        public float Answer()
+        private static float CalculateAnswer(string calculation)
         {
-            var calculation = decode(Bits);
-
             float result = 0;
             char lastOperator = '+';
             foreach (var c in calculation)
@@ -78,34 +96,8 @@ namespace GeneticAlgorithms
                 }
             }
 
-            return answer = result; 
-        }
-
-        public Chromosome Crossover(ref Chromosome mate, double rate)
-        {
-            if (rate > 1) throw new Exception("Rate cant exceed 1");
-            if (rand.NextDouble() >= rate) return this;
-
-            int position = (int)(rate * Bits.Length);
-            string firstHalf = Bits.Substring(0, position);
-            string lastHalf = mate.Bits.Substring(position);
-
-            mate = new Chromosome(firstHalf + lastHalf, 0, 0, mate.decode);
-            return new Chromosome(lastHalf + firstHalf, 0, 0, decode);
-        }
-
-        public Chromosome Mutate(double mutationRate)
-        {
-            var newGenes = Bits.Select(x =>
-            {
-                if (rand.NextDouble() <= mutationRate)
-                    return x == '0' ? '1' : '0';
-                else
-                    return x;
-
-            });
-            return new Chromosome(
-                new string(newGenes.ToArray()), 0, 0, decode);
+            return result; 
+        
         }
     }
 }
