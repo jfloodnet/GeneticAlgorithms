@@ -9,10 +9,12 @@ namespace GeneticAlgorithms
     public class Population
     {
         private readonly Random random;
-        private readonly IEnumerable<Chromosome> chromos;
+        private readonly IList<Chromosome> chromos;
         
         private readonly Chromosome solution;
         private readonly int generation;
+
+        public readonly Func<string, string> Decode = s => "";
 
         public int Count()
         {
@@ -24,15 +26,16 @@ namespace GeneticAlgorithms
             return generation;
         }
 
-        private Population(IEnumerable<Chromosome> chromos, Random r)
+        private Population(IEnumerable<Chromosome> chromos, Random r, Func<string, string> decoder)
         {
-            this.chromos = chromos.ToArray();
+            this.chromos = chromos.ToList();
             this.random = r;
+            this.Decode = decoder;
         }
 
         private Population(IEnumerable<Chromosome> chromos, Random r, Chromosome solution, int gen)
         {
-            this.chromos = chromos.ToArray();
+            this.chromos = chromos.ToList();
             this.solution = solution;
             this.generation = gen;
             this.random = r;
@@ -41,11 +44,17 @@ namespace GeneticAlgorithms
         public static Population NewPopulation(int size)
         {
             Random randomness = new Random();
-           
+            var decoder = new GeneticCode(randomness);
             return new Population(
                 Enumerable.Range(0, size)
-                    .Select(id => Chromosome.New(randomness)), randomness);
+                    .Select(id => 
+                        Chromosome.New(
+                            new GeneticCode(randomness))), 
+                        randomness, 
+                        bits => decoder.Decode(bits));
         }
+
+        public IEnumerable<Chromosome> All() { return chromos; }
 
         public Chromosome Solution()
         {
@@ -57,58 +66,56 @@ namespace GeneticAlgorithms
             return chromos.Aggregate((m, f) => m.Fitness >= f.Fitness ? m : f);
         }
 
-        public Chromosome SelectChromosome(float goal)
+        public Tuple<Chromosome,Chromosome> SelectPairs(float goal)
         {
-            var candidates = chromos.Select(x => x.CalculateFitness(goal));
+            IList<Chromosome> candidates = chromos.Select(x => x.CalculateFitness(goal)).ToList();
+            return new Tuple<Chromosome, Chromosome>(Select(candidates), Select(candidates));
+        }
 
+        private Chromosome Select(IList<Chromosome> candidates)
+        {
             float totalFitness = candidates.Sum(x => x.Fitness);
             float slice = (float)(totalFitness * random.NextDouble());
 
             float fitnessSoFar = 0.0F;
-            foreach (var item in candidates)
+            return Enumerable.Range(0, candidates.Count()).Select(i =>
             {
-                fitnessSoFar += item.Fitness;
-                if (fitnessSoFar > slice)
+                var item = candidates[i];
+                fitnessSoFar += candidates[i].Fitness;
+                if (fitnessSoFar >= slice)
                 {
                     return item;
-                }                
-            }
+                }
 
-            return chromos.Last();
+                var any = candidates.Last();
+                return any;
+            }).First();      
         }
 
-        public Population TestPopulation(float goal)
-        {
-            return new Population(
-                Enumerable.Range(0, chromos.Count())
-                    .Select(i =>
-                    {
-                        return chromos.ElementAt(i).CalculateFitness(goal);
-                    }), random);
-        }        
-
-        public IEnumerable<Chromosome> All() { return chromos; }
-
-        public Population FindSolution(float goal, double crossOverRate, double mutationRate)
+        public Population FindSolution(float goal, double crossOverRate, double mutationRate, int maxgenerations)
         {
             int generations = 0;
-            int maxgens = 50;
+            int maxgens = maxgenerations;
 
             Population currentGeneration = this;
+
             while (generations < maxgens)
             {
                 generations++;
 
-                var nextGeneration = 
-                Enumerable.Range(1, Count())
-                .Select(_ =>
+                var nextGeneration =
+                Enumerable.Range(1, currentGeneration.Count() / 2)
+                .SelectMany(_ =>
                 {
-                    var male = currentGeneration.SelectChromosome(goal);
-                    var female = currentGeneration.SelectChromosome(goal);
-                    return 
-                        male
-                        .MateWith(female, crossOverRate, mutationRate)
-                        .CalculateFitness(goal);
+                    var pair = currentGeneration.SelectPairs(goal);
+                    var male = pair.Item1;
+                    var female = pair.Item2;
+
+                    male = male.Crossover(ref female, crossOverRate);
+                    male = male.Mutate(mutationRate).CalculateFitness(goal);
+                    female = female.Mutate(mutationRate).CalculateFitness(goal);
+
+                    return new[] { male, female };
                 }).ToList();
 
                 var possibleSolution =

@@ -21,87 +21,92 @@ namespace Test
             Assert.Equal(N, sut.All().Count());
         }
 
+        private Chromosome ChromosomeWithEquation(string equation)
+        {
+            return Chromosome.New(() => "", bits => equation);
+        }
+
+        private Chromosome ChromosomeWithBits(string bits)
+        {
+            return Chromosome.New(() => bits, _ => "");
+        }
+
         [Fact]
         public void Can_handle_addition()
         {
-            var sut = Chromosome.New(new Random());
-            sut.Decode = bits => "7+4";
+            var sut = ChromosomeWithEquation("7+4");
             Assert.Equal(7 + 4, sut.Answer());            
         }
 
         [Fact]
         public void Can_handle_subtraction()
-        {            
-            var sut = Chromosome.New(new Random());
-            sut.Decode = bits => "7-4";
+        {
+            var sut = ChromosomeWithEquation("7-4");
             Assert.Equal(7 - 4, sut.Answer());
         }
 
         [Fact]
         public void Can_handle_multiplication()
-        {            
-            var sut = Chromosome.New(new Random());
-            sut.Decode = bits => "7*4";
+        {
+            var sut = ChromosomeWithEquation("7*4");
             Assert.Equal(7 * 4, sut.Answer());
         }
 
         [Fact]
         public void Can_handle_division()
-        {            
-            var sut = Chromosome.New(new Random());
-            sut.Decode = bits => "7/4";
-            Assert.Equal(7 / 4, sut.Answer());
+        {
+            var sut = ChromosomeWithEquation("7/4");
+            Assert.Equal((7.0F / 4.0F), sut.Answer());
         }
 
         [Fact]
         public void Can_handle_multiple_operations()
-        {           
-            var sut = Chromosome.New(new Random());
-            sut.Decode = bits => "7/7*4+4-7";
+        {
+            var sut = ChromosomeWithEquation("7/7*4+4-7");
             Assert.Equal(7 / 7 * 4 + 4 - 7, sut.Answer());
         }
 
         [Fact]
         public void Decoding_string_should_ignore_prefixed_operators()
         {
-            Func<string, string> g = s => Chromosome.GenoTypes.Single(x => x.Value.Equals(s)).Key;
-            Func<string> fakeCodeGen = () => string.Format("{0}{1}{2}{3}", g("/"), g("7"), g("+"), g("4"));
+            Func<string, string> g = s => GenoTypes().Single(x => x.Value.Equals(s)).Key;
+            Func<string> generateBits = () => string.Format("{0}{1}{2}{3}", g("/"), g("7"), g("+"), g("4"));
 
-            var sut = Chromosome.New(fakeCodeGen);           
+            var sut = new GeneticCode(new Random());
 
-            Assert.Equal("7+4", sut.DecodedString);
+            Assert.Equal("7+4", sut.Decode(generateBits()));
         }
 
         [Fact]
         public void Decoding_string_should_ignore_repeated_operators()
         {
-            Func<string, string> g = s => Chromosome.GenoTypes.Single(x => x.Value.Equals(s)).Key;
-            Func<string> fakeCodeGen = () => string.Format("{0}{1}{2}{3}",  g("7"), g("+"), g("+"), g("4"));
+            Func<string, string> g = s => GenoTypes().Single(x => x.Value.Equals(s)).Key;
+            Func<string> generateBits = () => string.Format("{0}{1}{2}{3}",  g("7"), g("+"), g("+"), g("4"));
 
-            var sut = Chromosome.New(fakeCodeGen);
+            var sut = new GeneticCode(new Random());
 
-            Assert.Equal("7+4", sut.DecodedString);
+            Assert.Equal("7+4", sut.Decode(generateBits()));
         }
 
         [Fact]
         public void Decoding_string_should_ignore_repeated_operands()
         {
-            Func<string, string> g = s => Chromosome.GenoTypes.Single(x => x.Value.Equals(s)).Key;
-            Func<string> fakeCodeGen = () => string.Format("{0}{1}{2}{3}", g("7"), g("+"), g("4"), g("4"));
+            Func<string, string> g = s => GenoTypes().Single(x => x.Value.Equals(s)).Key;
+            Func<string> generateBits = () => string.Format("{0}{1}{2}{3}", g("7"), g("+"), g("4"), g("4"));
 
-            var sut = Chromosome.New(fakeCodeGen);
+            var sut = new GeneticCode(new Random());
 
-            Assert.Equal("7+4", sut.DecodedString);
+            Assert.Equal("7+4", sut.Decode(generateBits()));
         }
 
 
         [Fact]
         public void CrossOver_should_swap_at_the_position_passed_in()
         {
-            var sut = Chromosome.New(() => "11111111");
-            var other = Chromosome.New(() => "00000000");
+            var sut = ChromosomeWithBits("11111111");
+            var other = ChromosomeWithBits("00000000");
 
-            var result = sut.Crossover(other, .5);
+            var result = sut.Crossover(ref other, .5);
 
             Assert.Equal(result.Bits, "11110000");
         }
@@ -109,7 +114,7 @@ namespace Test
         [Fact]
         public void Mutate_should_mutate_all_when_rate_is_1()
         {
-            var sut = Chromosome.New(() => "11111111");           
+            var sut = ChromosomeWithBits("11111111");           
 
             var result = sut.Mutate(1);
 
@@ -117,9 +122,9 @@ namespace Test
         }
 
         [Fact]
-        public void Mutate_should_mutate_none_all_when_rate_is_0()
+        public void Mutate_should_mutate_none_when_rate_is_0()
         {
-            var sut = Chromosome.New(() => "11111111");
+            var sut = ChromosomeWithBits("11111111");
 
             var result = sut.Mutate(0);
 
@@ -129,7 +134,7 @@ namespace Test
         [Fact]
         public void Mutate_should_mutate_some_when_rate_is_50_percent()
         {
-            var sut = Chromosome.New(() => "11111111");
+            var sut = ChromosomeWithBits("11111111");
 
             var result = sut.Mutate(.5);
 
@@ -141,11 +146,10 @@ namespace Test
         {
             Stopwatch watch = new Stopwatch();
             watch.Start();
-            float goal = 22F;
+            float goal = 150F;
             var population = Population.NewPopulation(300);
 
-
-            var finalGeneration = population.FindSolution(goal, .7, .05);
+            var finalGeneration = population.FindSolution(goal, .7, .001, 400);
             var solution = finalGeneration.Solution();
 
             watch.Stop();
@@ -154,23 +158,26 @@ namespace Test
             {
                 Console.WriteLine("Ms to solution: {0}", watch.ElapsedMilliseconds);
                 Console.WriteLine("Number of generations: {0}", finalGeneration.Generation());
-                Console.WriteLine("Fitness: {0}, Solution: {1}, Answer: {2}", solution.Fitness, solution.DecodedString,
+                Console.WriteLine("Fitness: {0}, Solution: {1}, Answer: {2}", solution.Fitness, population.Decode(solution.Bits),
                     solution.Answer());
                 Console.WriteLine("Bits: {0}", solution.Bits);
 
                 Assert.Equal(solution.Answer(), goal);
             }
+            else
+            {
+                Console.WriteLine("No Solution found after {0} generations", finalGeneration.Generation());
+            }
 
             foreach (var c in finalGeneration.All())
             {
                 Console.WriteLine("Current generations solutions");
-                Console.WriteLine("Fitness: {0}, Solution: {1}, Answer: {2}", c.Fitness, c.DecodedString, c.Answer());
+                Console.WriteLine("Fitness: {0}, Solution: {1}, Answer: {2}", c.Fitness, population.Decode(c.Bits), c.Answer());
             }
 
-            Assert.NotNull(solution);
         }
 
-        private static Dictionary<string, string> InitGenoTypes()
+        private static Dictionary<string, string> GenoTypes()
         {
             var genoTypes = new Dictionary<string, string>();
             genoTypes.Add("0001", "1");

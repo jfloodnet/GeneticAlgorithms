@@ -8,21 +8,16 @@ namespace GeneticAlgorithms
 {
     public class Chromosome
     {
-        const int genoSize = 4;
-        const int chromoSize = 75 * genoSize;
+        Random rand = new Random();
+        static readonly int GENO_SIZE = 4;
+        static readonly int CHROMO_SIZE = 75 * GENO_SIZE;
 
+        readonly Func<string, string> decode;
+        private float answer;
+        
         public readonly string Bits;
         public readonly float Fitness;
-
-        public string DecodedString
-        {
-            get
-            {
-                return Decode(Bits);
-            }
-        }
-
-        private float answer;
+       
         public float Result
         {
             get
@@ -31,41 +26,35 @@ namespace GeneticAlgorithms
             }
         }
 
-        public Func<string, string> Decode = bits => DecodeImpl(bits);
-        
-        public static readonly Dictionary<string, string> GenoTypes = InitGenoTypes();
-
-        private Chromosome(string bits, float fitness, float answer)
+        private Chromosome(string bits, float fitness, float answer, Func<string, string> decoder)
         {
             Bits = bits;
             Fitness = fitness;
             this.answer = answer;
+            this.decode = decoder;
         }
 
-
-
-        public static Chromosome New(Random random)
+        public static Chromosome New(GeneticCode code)
         {
-            return New(() => GenerateCodeImpl(random));
+            return New(() => code.Generate(CHROMO_SIZE), bits => code.Decode(bits));
         }
 
-        public static Chromosome New(Func<string> generateCode)
+        public static Chromosome New(Func<string> generateCode, Func<string,string> decoder)
         {
-            return new Chromosome(generateCode(), 0, 0);
+            return new Chromosome(generateCode(), 0, 0, decoder);
         }
 
         public Chromosome CalculateFitness(float goal)
         {
             var answer = this.Answer();
             if (Math.Abs(answer - goal) < float.Epsilon)
-                return new Chromosome(Bits, float.MaxValue, answer);
-            return new Chromosome(Bits, 1 / Math.Abs(goal - answer), answer);
+                return new Chromosome(Bits, float.MaxValue, answer, decode);
+            return new Chromosome(Bits, 1 / Math.Abs(goal - answer), answer, decode);
         }
-
 
         public float Answer()
         {
-            var calculation = Decode(Bits);
+            var calculation = decode(Bits);
 
             float result = 0;
             char lastOperator = '+';
@@ -92,25 +81,21 @@ namespace GeneticAlgorithms
             return answer = result; 
         }
 
-        public Chromosome MateWith(Chromosome female, double crossoverRate, double mutationRate)
-        {            
-            var baby = Crossover(female, crossoverRate);
-            return baby.Mutate(mutationRate);
-        }
-
-        public Chromosome Crossover(Chromosome mate, double rate)
+        public Chromosome Crossover(ref Chromosome mate, double rate)
         {
             if (rate > 1) throw new Exception("Rate cant exceed 1");
+            if (rand.NextDouble() >= rate) return this;
 
             int position = (int)(rate * Bits.Length);
-            return new Chromosome(
-                Bits.Substring(0, position) + mate.Bits.Substring(position),
-                0, 0);
+            string firstHalf = Bits.Substring(0, position);
+            string lastHalf = mate.Bits.Substring(position);
+
+            mate = new Chromosome(firstHalf + lastHalf, 0, 0, mate.decode);
+            return new Chromosome(lastHalf + firstHalf, 0, 0, decode);
         }
 
         public Chromosome Mutate(double mutationRate)
         {
-            Random rand = new Random();
             var newGenes = Bits.Select(x =>
             {
                 if (rand.NextDouble() <= mutationRate)
@@ -119,57 +104,8 @@ namespace GeneticAlgorithms
                     return x;
 
             });
-            return new Chromosome(new string(newGenes.ToArray()), 0, 0);
+            return new Chromosome(
+                new string(newGenes.ToArray()), 0, 0, decode);
         }
-
-        private static string GenerateCodeImpl(Random random)
-        {
-            return new string(
-                Enumerable.Range(0, chromoSize)
-                    .Select(_ => random.NextDouble() > .5 ? '1' : '0')
-                    .ToArray());            
-        }
-
-        private static string DecodeImpl(string bits)
-        {
-            return DecodeImpl("", bits, true, GenoTypes);
-        }
-
-        private static string DecodeImpl(string calculation, string remainder, bool lastSawOperator, Dictionary<string, string> genoTypes)
-        {
-            if (remainder.Length <= 0) return calculation;
-
-            var operators = new[] { "+", "*", "/", "-" };
-            var geno = remainder.Substring(0, 4);
-            var tail = remainder.Substring(4);
-            string val = null;
-            if (genoTypes.TryGetValue(geno, out val) && 
-                lastSawOperator != operators.Contains(val))          
-                return DecodeImpl(
-                    string.Concat(calculation, val), 
-                    tail, !lastSawOperator, genoTypes);                
-            
-            //skip if we dont recognise the geno;
-            return DecodeImpl(calculation, tail, lastSawOperator, genoTypes);
-        }
-
-        private static Dictionary<string, string> InitGenoTypes()
-        {
-            var genoTypes = new Dictionary<string, string>();
-            genoTypes.Add("0001", "1");
-            genoTypes.Add("0010", "2");
-            genoTypes.Add("0011", "3");
-            genoTypes.Add("0100", "4");
-            genoTypes.Add("0101", "5");
-            genoTypes.Add("0110", "6");
-            genoTypes.Add("0111", "7");
-            genoTypes.Add("1000", "8");
-            genoTypes.Add("1001", "9");
-            genoTypes.Add("1010", "+");
-            genoTypes.Add("1011", "-");
-            genoTypes.Add("1100", "*");
-            genoTypes.Add("1101", "/");
-            return genoTypes;
-        }   
     }
 }
