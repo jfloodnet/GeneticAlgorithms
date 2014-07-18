@@ -149,36 +149,28 @@ namespace Test
         {
             Stopwatch watch = new Stopwatch();
             watch.Start();
-            float target = 31F;
+            float target = 63F;
             int populationSize = 1000;
             var population = Population.NewPopulation(target, populationSize, new Random());
+            var evolution = new Evolution(target, population);
 
-            var finalGeneration = population.FindSolution(.7, .001, 1000);
-            var solution = finalGeneration.Solution();
+            var solution = evolution.FindSolution(.7, .001, 1000);
 
             watch.Stop();
 
-            if (solution != null)
-            {
-                Console.WriteLine("Ms to solution: {0}", watch.ElapsedMilliseconds);
-                Console.WriteLine("Number of generations: {0}", finalGeneration.Generation());
-                Console.WriteLine("Fitness: {0}, Solution: {1}, Answer: {2}", solution.Fitness, population.Decode(solution.Bits),
-                    solution.Answer);
-                Console.WriteLine("Bits: {0}", solution.Bits);
+            Console.WriteLine("Ms to solution: {0}", watch.ElapsedMilliseconds);
+            Console.WriteLine("Number of generations: {0}", solution.GenCount);
+            Console.WriteLine("Fitness: {0}, Solution: {1}, Answer: {2}", solution.Fitness, population.Decode(solution.Bits),
+                solution.Answer);
+            Console.WriteLine("Bits: {0}", solution.Bits);
 
-                Assert.Equal(solution.Answer, target);
-            }
-            else
-            {
-                Console.WriteLine("No Solution found after {0} generations", finalGeneration.Generation());
-            }
+            Assert.Equal(target, solution.Answer);
 
-            foreach (var c in finalGeneration.All())
+            foreach (var c in solution.Population.All())
             {
                 Console.WriteLine("Current generations solutions");
                 Console.WriteLine("Fitness: {0}, Solution: {1}, Answer: {2}", c.Fitness, population.Decode(c.Bits), c.Answer);
             }
-
         }
 
         private static Dictionary<string, string> GenoTypes()

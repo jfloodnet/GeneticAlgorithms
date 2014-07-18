@@ -8,9 +8,9 @@ namespace GeneticAlgorithms
 {
     public class Chromosome
     {
-        
         static readonly int GENO_SIZE = 4;
         static readonly int CHROMO_SIZE = 20 * GENO_SIZE;
+        static readonly float FITNESS_OF_CORRECT_ANSWER = 999.9f;
 
         readonly Random rand = new Random();
         readonly Func<string, string> decode;
@@ -65,10 +65,15 @@ namespace GeneticAlgorithms
             return new Chromosome(Target, new string(newGenes.ToArray()), decode);
         }
 
+        public bool EqualsAnswer(float target)
+        {
+            return (Math.Abs(this.Answer - target) < float.Epsilon);
+        }
+
         private static float CalculateFitness(float goal, float answer)
-        {            
+        {
             if (Math.Abs(answer - goal) < float.Epsilon)
-                return float.MaxValue;
+                return FITNESS_OF_CORRECT_ANSWER;
             return 1 / Math.Abs(goal - answer);
         }
 

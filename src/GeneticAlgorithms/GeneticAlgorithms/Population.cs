@@ -35,7 +35,7 @@ namespace GeneticAlgorithms
             this.Decode = decoder;            
         }
 
-        private Population(float target, IEnumerable<Chromosome> chromos, Random random, Chromosome solution, int generation)
+        public Population(float target, IEnumerable<Chromosome> chromos, Random random, Chromosome solution, int generation)
         {
             this.target = target;
             this.chromos = chromos.ToList();
@@ -94,42 +94,6 @@ namespace GeneticAlgorithms
                 candidates.Remove(any);
                 return any;
             }).First();      
-        }
-
-        public Population FindSolution(double crossOverRate, double mutationRate, int maxgenerations)
-        {
-            int genCount = 0;
-            Population currentGeneration = this;
-            while( genCount < maxgenerations)               
-            {
-                genCount++;
-                var nextGeneration =
-                ParallelEnumerable.Range(1, currentGeneration.Count())
-                .Select(__ =>
-                {
-                    var pair = currentGeneration.SelectPairs();
-                    var male = pair.Item1;
-                    var female = pair.Item2;
-                    return
-                    male.Crossover(female, crossOverRate)
-                        .Mutate(mutationRate);
-                }).ToList();
-
-                var possibleSolution =
-                    nextGeneration.FirstOrDefault(
-                        offSpring => Math.Abs(offSpring.Fitness - float.MaxValue) < float.Epsilon);
-
-                currentGeneration =
-                    new Population(target, nextGeneration, random, possibleSolution, genCount);
-
-                if (possibleSolution != null)
-                {
-                    //got the loot lets get out
-                    return currentGeneration;
-                }
-            }
-
-            return currentGeneration;
         }
     }
 }
